@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold mb-8 text-gray-800">Photo Gallery</h1>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for year, months in structure.items() %}
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold mb-4">{{ year }}</h2>
+            <div class="space-y-2">
+                {% for month, days in months.items() %}
+                <details class="group">
+                    <summary class="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer">
+                        <span class="font-medium">{{ month | month_name }}</span>
+                        <svg class="w-5 h-5 transform group-open:rotate-180" fill="none" stroke="currentColor"
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </summary>
+                    <div class="ml-4 mt-2 grid grid-cols-4 gap-2">
+                        {% for day in days %}
+                        <a href="{{ url_for('day_view', year=year, month=month, day=day) }}"
+                           class="text-center p-2 hover:bg-blue-100 rounded">
+                            {{ day }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
