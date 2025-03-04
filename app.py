@@ -56,7 +56,11 @@ def day_view(year, month, day):
 
 @app.route('/<path:filename>')
 def serve_photo(filename):
-    return send_from_directory(app.config['PHOTO_ROOT'], filename)
+    response = send_from_directory(app.config['PHOTO_ROOT'], filename, as_attachment=True)
+    response = make_response(response)
+    response.set_etag(get_etag())
+    response.headers['Cache-Control'] = 'public, max-age=1800'
+    return response.make_conditional(request.environ)
 
 
 if __name__ == '__main__':
