@@ -384,20 +384,261 @@
 </div>
 
 <script>
+    // Cookie工具函数
+    class CookieManager {
+        // 设置cookie
+        static set(name, value, days = 7) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))};expires=${expires.toUTCString()};path=/`;
+        }
+
+        // 获取cookie
+        static get(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) {
+                    const value = c.substring(nameEQ.length, c.length);
+                    try {
+                        return JSON.parse(decodeURIComponent(value));
+                    } catch (e) {
+                        return value;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 删除cookie
+        static delete(name) {
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        }
+    }
+
+    // 应用状态管理
+    class AppState {
+        constructor() {
+            this.state = {
+                currentStep: 1,
+                folderPath: '',
+                level: '',
+                categories: [],
+                selectedCategories: [],
+                pageSize: 50,
+                currentPage: 1,
+                sessionId: null,
+                folderValidated: false
+            };
+        }
+
+        // 保存状态到cookie
+        save() {
+            CookieManager.set('imageClassifierState', this.state);
+        }
+
+        // 从cookie加载状态
+        load() {
+            const savedState = CookieManager.get('imageClassifierState');
+            if (savedState) {
+                this.state = {...this.state, ...savedState};
+                return true;
+            }
+            return false;
+        }
+
+        // 清除状态
+        clear() {
+            this.state = {
+                currentStep: 1,
+                folderPath: '',
+                level: '',
+                categories: [],
+                selectedCategories: [],
+                pageSize: 50,
+                currentPage: 1,
+                sessionId: null,
+                folderValidated: false
+            };
+            CookieManager.delete('imageClassifierState');
+        }
+
+        // 更新状态并自动保存
+        update(updates) {
+            this.state = {...this.state, ...updates};
+            this.save();
+        }
+
+        // 获取状态
+        get() {
+            return {...this.state};
+        }
+    }
+
+    // 创建全局状态管理器
+    const appState = new AppState();
+
     // 全局变量
     let currentSessionId = '{{ session_id }}';
-    let currentStep = 1;
     let categories = [];
     let currentImageIndex = 0;
     let totalImages = 0;
     let currentImageId = null;
-    let folderPath = null;
     let folderValidated = false;
+
     // 分页相关全局变量
     let currentPage = 1;
     let pageSize = 50;
     let totalPages = 1;
     let allClassifications = [];
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        // 尝试从cookie恢复状态
+        const hasSavedState = appState.load();
+
+        if (hasSavedState) {
+            const state = appState.get();
+            console.log('恢复应用状态:', state);
+
+            // 恢复基本状态
+            currentSessionId = state.sessionId || currentSessionId;
+            pageSize = state.pageSize || 50;
+            currentPage = state.currentPage || 1;
+
+            // 恢复步骤1的状态
+            if (state.folderPath) {
+                document.getElementById('folder-path-input').value = state.folderPath;
+            }
+
+            if (state.level) {
+                const levelRadio = document.querySelector(`input[name="level"][value="${state.level}"]`);
+                if (levelRadio) {
+                    levelRadio.checked = true;
+                }
+            }
+
+            // 根据保存的步骤恢复界面
+            showStep(state.currentStep);
+            updateStepIndicator(state.currentStep);
+
+            // 如果之前已经验证过文件夹，恢复验证状态
+            if (state.folderValidated) {
+                folderValidated = true;
+                validateStep1();
+            }
+
+            // 如果是在步骤2或之后，需要从后端恢复数据
+            if (state.currentStep >= 2) {
+                restoreApplicationState(state);
+            }
+        } else {
+            // 没有保存的状态，正常初始化
+            updateStepIndicator(1);
+            initPagination();
+        }
+
+        // 监听输入框变化
+        document.getElementById('folder-path-input').addEventListener('input', function () {
+            folderValidated = false;
+            appState.update({folderValidated: false});
+            validateStep1();
+        });
+
+        // 监听分类等级选择
+        document.querySelectorAll('input[name="level"]').forEach(radio => {
+            radio.addEventListener('change', function () {
+                appState.update({level: this.value});
+                validateStep1();
+            });
+        });
+
+        // 监听回车键
+        document.getElementById('folder-path-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                validateFolderPath();
+            }
+        });
+    });
+
+    // 恢复应用状态
+    async function restoreApplicationState(state) {
+        try {
+            // 恢复步骤2的状态
+            if (state.currentStep >= 2) {
+                await restoreStep2(state);
+            }
+
+            // 恢复步骤3的状态
+            if (state.currentStep >= 3) {
+                await restoreStep3(state);
+            }
+
+            // 恢复步骤4的状态
+            if (state.currentStep >= 4) {
+                await restoreStep4(state);
+            }
+        } catch (error) {
+            console.error('恢复应用状态失败:', error);
+            // 如果恢复失败，回到第一步
+            showStep(1);
+            updateStepIndicator(1);
+            alert('无法恢复之前的状态，请重新开始');
+        }
+    }
+
+    // 恢复步骤2
+    async function restoreStep2(state) {
+        showLoading('恢复分类选择...');
+
+        try {
+            const response = await fetch('/api/select-folder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    folder_path: state.folderPath,
+                    level: state.level
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                categories = data.available_categories || [];
+                renderCategories(state.selectedCategories || []);
+            } else {
+                throw new Error(data.error || '恢复失败');
+            }
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 恢复步骤3
+    async function restoreStep3(state) {
+        showLoading('恢复分类进度...');
+
+        try {
+            // 重新获取当前图片
+            await loadNextImage();
+            renderCategoryButtons(state.selectedCategories || []);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 恢复步骤4
+    async function restoreStep4(state) {
+        await loadClassifications();
+        currentPage = state.currentPage || 1;
+        pageSize = state.pageSize || 50;
+        document.getElementById('page-size-select').value = pageSize;
+    }
 
     // 初始化分页设置
     function initPagination() {
@@ -408,267 +649,6 @@
             document.getElementById('page-size-select').value = pageSize;
         }
     }
-
-    // 改变页面大小
-    function changePageSize(newSize) {
-        pageSize = parseInt(newSize);
-        currentPage = 1; // 重置到第一页
-
-        // 保存到localStorage
-        localStorage.setItem('image_classifier_page_size', newSize);
-
-        // 重新渲染当前数据
-        if (allClassifications.length > 0) {
-            renderCurrentPage();
-        }
-    }
-
-    // 渲染当前页面
-    function renderCurrentPage() {
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const currentPageData = allClassifications.slice(startIndex, endIndex);
-
-        renderClassificationList(currentPageData);
-        updatePaginationInfo();
-        renderPaginationControls();
-    }
-
-    // 更新分页信息显示
-    function updatePaginationInfo() {
-        const startIndex = (currentPage - 1) * pageSize + 1;
-        const endIndex = Math.min(currentPage * pageSize, allClassifications.length);
-        const totalItems = allClassifications.length;
-
-        document.getElementById('pagination-info').textContent =
-            `显示第 ${startIndex}-${endIndex} 条，共 ${totalItems} 条记录`;
-    }
-
-    // 渲染分页控件
-    function renderPaginationControls() {
-        totalPages = Math.ceil(allClassifications.length / pageSize);
-        const pageNumbersContainer = document.getElementById('page-numbers');
-
-        // 清空现有页码按钮
-        pageNumbersContainer.innerHTML = '';
-
-        // 计算显示的页码范围
-        let startPage = Math.max(1, currentPage - 2);
-        let endPage = Math.min(totalPages, currentPage + 2);
-
-        // 确保显示5个页码（如果可能）
-        if (endPage - startPage < 4) {
-            if (startPage === 1) {
-                endPage = Math.min(totalPages, startPage + 4);
-            } else if (endPage === totalPages) {
-                startPage = Math.max(1, endPage - 4);
-            }
-        }
-
-        // 生成页码按钮
-        for (let i = startPage; i <= endPage; i++) {
-            const pageButton = document.createElement('button');
-            pageButton.className = `px-3 py-1 border rounded min-w-10 ${
-                i === currentPage
-                    ? 'bg-blue-500 text-white border-blue-500'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`;
-            pageButton.textContent = i;
-            pageButton.onclick = () => goToPage(i);
-            pageNumbersContainer.appendChild(pageButton);
-        }
-
-        // 更新按钮状态
-        document.getElementById('first-page').disabled = currentPage === 1;
-        document.getElementById('prev-page').disabled = currentPage === 1;
-        document.getElementById('next-page').disabled = currentPage === totalPages;
-        document.getElementById('last-page').disabled = currentPage === totalPages;
-
-        // 如果只有一页，隐藏分页控件
-        const paginationContainer = document.querySelector('.flex.items-center.space-x-2');
-        if (totalPages <= 1) {
-            paginationContainer.classList.add('hidden');
-        } else {
-            paginationContainer.classList.remove('hidden');
-        }
-    }
-
-    // 页面导航函数
-    function goToPage(page) {
-        if (page < 1 || page > totalPages) return;
-        currentPage = page;
-        renderCurrentPage();
-    }
-
-    function previousPage() {
-        if (currentPage > 1) {
-            goToPage(currentPage - 1);
-        }
-    }
-
-    function nextPage() {
-        if (currentPage < totalPages) {
-            goToPage(currentPage + 1);
-        }
-    }
-
-    // 修改加载分类结果的函数
-    async function loadClassifications() {
-        showLoading('加载分类结果...');
-
-        try {
-            const response = await fetch('/api/get-classifications', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: currentSessionId
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                allClassifications = data.classifications || [];
-
-                // 初始化分页
-                initPagination();
-
-                if (allClassifications.length === 0) {
-                    // 显示空状态
-                    document.getElementById('classification-list').innerHTML = '';
-                    document.getElementById('empty-state').classList.remove('hidden');
-                    document.querySelector('.overflow-x-auto').classList.add('hidden');
-                } else {
-                    // 隐藏空状态，显示表格
-                    document.getElementById('empty-state').classList.add('hidden');
-                    document.querySelector('.overflow-x-auto').classList.remove('hidden');
-
-                    // 渲染第一页
-                    currentPage = 1;
-                    renderCurrentPage();
-                }
-            } else {
-                alert('错误: ' + (data.error || '未知错误'));
-            }
-        } catch (error) {
-            alert('网络错误: ' + error.message);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // 修改渲染分类列表函数，现在只渲染当前页数据
-    function renderClassificationList(classifications) {
-        const container = document.getElementById('classification-list');
-        container.innerHTML = '';
-
-        classifications.forEach((item, index) => {
-            const globalIndex = (currentPage - 1) * pageSize + index;
-            const row = document.createElement('tr');
-            row.className = globalIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-            row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                <div class="flex items-center">
-                    <i class="fas fa-image text-gray-400 mr-2"></i>
-                    <span class="truncate max-w-xs" title="${item.name}">${item.name}</span>
-                </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <select class="border border-gray-300 rounded px-3 py-1 category-select" data-image="${item.id}">
-                    <option value="">未分类</option>
-                    ${categories.map(cat =>
-                `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`
-            ).join('')}
-                </select>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <button onclick="updateClassification('${item.id}')"
-                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs">
-                    更新
-                </button>
-            </td>
-        `;
-            container.appendChild(row);
-        });
-    }
-
-    // 修改更新分类函数，保持当前页面位置
-    async function updateClassification(imageId) {
-        const select = document.querySelector(`select[data-image="${imageId}"]`);
-        const category = select.value;
-
-        showLoading('更新分类...');
-
-        try {
-            const response = await fetch('/api/update-classification', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: currentSessionId,
-                    image_id: imageId,
-                    category: category
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                // 更新本地数据
-                const updatedItem = allClassifications.find(item => item.id === imageId);
-                if (updatedItem) {
-                    updatedItem.category = category;
-                }
-
-                // 显示成功提示
-                const button = document.querySelector(`select[data-image="${imageId}"]`).closest('tr').querySelector('button');
-                const originalText = button.textContent;
-                button.textContent = '✓ 已更新';
-                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                button.classList.add('bg-green-500', 'hover:bg-green-600');
-
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
-                    button.classList.add('bg-blue-500', 'hover:bg-blue-600');
-                }, 2000);
-            } else {
-                alert('错误: ' + (data.error || '未知错误'));
-            }
-        } catch (error) {
-            alert('网络错误: ' + error.message);
-        } finally {
-            hideLoading();
-        }
-    }
-
-
-    // 初始化
-    document.addEventListener('DOMContentLoaded', function () {
-        updateStepIndicator(1);
-        initPagination(); // 初始化分页设置
-
-        // 监听输入框变化
-        document.getElementById('folder-path-input').addEventListener('input', function () {
-            folderValidated = false;
-            validateStep1();
-        });
-
-        // 监听分类等级选择
-        document.querySelectorAll('input[name="level"]').forEach(radio => {
-            radio.addEventListener('change', validateStep1);
-        });
-
-        // 监听回车键
-        document.getElementById('folder-path-input').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                validateFolderPath();
-            }
-        });
-    });
 
     // 验证文件夹路径
     async function validateFolderPath() {
@@ -702,14 +682,23 @@
                     `路径验证成功！找到 ${data.image_count} 个图片文件`,
                     data.preview_files);
                 folderValidated = true;
+
+                // 保存状态
+                appState.update({
+                    folderPath: folderPath,
+                    folderValidated: true
+                });
+
                 validateStep1();
             } else {
                 showValidationResult('error', data.error || '路径验证失败');
                 folderValidated = false;
+                appState.update({folderValidated: false});
             }
         } catch (error) {
             showValidationResult('error', '网络错误: ' + error.message);
             folderValidated = false;
+            appState.update({folderValidated: false});
         } finally {
             hideLoading();
         }
@@ -719,7 +708,7 @@
     function showValidationResult(type, message, previewFiles = []) {
         const validationResult = document.getElementById('folder-validation-result');
 
-        let icon, bgColor, textColor;
+        let icon, bgColor, textColor, borderColor;
         if (type === 'success') {
             icon = 'fa-check-circle';
             bgColor = 'bg-green-50';
@@ -776,7 +765,7 @@
     // 步骤1 -> 步骤2
     async function proceedToStep2() {
         const level = document.querySelector('input[name="level"]:checked').value;
-        folderPath = document.getElementById('folder-path-input').value.trim();
+        const folderPath = document.getElementById('folder-path-input').value.trim();
 
         showLoading('正在扫描文件夹中的图片...');
 
@@ -798,6 +787,16 @@
             if (response.ok && data.success) {
                 categories = data.available_categories || [];
                 renderCategories();
+
+                // 保存状态
+                appState.update({
+                    currentStep: 2,
+                    folderPath: folderPath,
+                    level: level,
+                    categories: categories,
+                    sessionId: currentSessionId
+                });
+
                 showStep(2);
                 updateStepIndicator(2);
             } else {
@@ -811,25 +810,35 @@
         }
     }
 
-    // 渲染分类选项
-    function renderCategories() {
+    // 渲染分类选项，支持选中状态恢复
+    function renderCategories(selectedCategories = []) {
         const container = document.getElementById('categories-container');
         container.innerHTML = '';
 
         categories.forEach(category => {
+            const isSelected = selectedCategories.includes(category);
             const categoryElement = document.createElement('div');
             categoryElement.className = 'category-option';
             categoryElement.innerHTML = `
-                    <input type="checkbox" id="cat-${category}" value="${category}" class="hidden peer" onchange="validateStep2()">
-                    <label for="cat-${category}" class="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 transition-all">
-                        <div class="w-6 h-6 rounded border-2 border-gray-300 peer-checked:border-blue-500 peer-checked:bg-blue-500 flex items-center justify-center mr-3">
-                            <i class="fas fa-check text-white text-xs hidden peer-checked:block"></i>
-                        </div>
-                        <span class="text-gray-800 font-medium">${category}</span>
-                    </label>
-                `;
+            <input type="checkbox" id="cat-${category}" value="${category}"
+                   class="hidden peer" ${isSelected ? 'checked' : ''}
+                   onchange="validateStep2()">
+            <label for="cat-${category}"
+                   class="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer
+                          peer-checked:border-blue-500 peer-checked:bg-blue-50
+                          hover:border-gray-300 transition-all">
+                <div class="w-6 h-6 rounded border-2 border-gray-300
+                            peer-checked:border-blue-500 peer-checked:bg-blue-500
+                            flex items-center justify-center mr-3">
+                    <i class="fas fa-check text-white text-xs hidden peer-checked:block"></i>
+                </div>
+                <span class="text-gray-800 font-medium">${category}</span>
+            </label>
+        `;
             container.appendChild(categoryElement);
         });
+
+        validateStep2();
     }
 
     // 验证步骤2
@@ -863,6 +872,13 @@
             if (response.ok && data.success) {
                 renderCategoryButtons(selectedCategories);
                 await loadNextImage();
+
+                // 保存状态
+                appState.update({
+                    currentStep: 3,
+                    selectedCategories: selectedCategories
+                });
+
                 showStep(3);
                 updateStepIndicator(3);
             } else {
@@ -886,11 +902,11 @@
             button.setAttribute('data-category', category);
             button.onclick = () => classifyCurrentImage(category);
             button.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <span class="font-medium text-gray-800">${category}</span>
-                        <i class="fas fa-folder text-gray-400"></i>
-                    </div>
-                `;
+                <div class="flex items-center justify-between">
+                    <span class="font-medium text-gray-800">${category}</span>
+                    <i class="fas fa-folder text-gray-400"></i>
+                </div>
+            `;
             container.appendChild(button);
         });
     }
@@ -1004,9 +1020,259 @@
 
     // 完成分类
     async function finishClassification() {
+        // 保存状态
+        appState.update({
+            currentStep: 4
+        });
+
         showStep(4);
         updateStepIndicator(4);
         await loadClassifications();
+    }
+
+    // 加载分类结果
+    async function loadClassifications() {
+        showLoading('加载分类结果...');
+
+        try {
+            const response = await fetch('/api/get-classifications', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                allClassifications = data.classifications || [];
+
+                // 初始化分页
+                initPagination();
+
+                if (allClassifications.length === 0) {
+                    // 显示空状态
+                    document.getElementById('classification-list').innerHTML = '';
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.querySelector('.overflow-x-auto').classList.add('hidden');
+                } else {
+                    // 隐藏空状态，显示表格
+                    document.getElementById('empty-state').classList.add('hidden');
+                    document.querySelector('.overflow-x-auto').classList.remove('hidden');
+
+                    // 渲染第一页
+                    currentPage = 1;
+                    renderCurrentPage();
+                }
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 渲染当前页面
+    function renderCurrentPage() {
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const currentPageData = allClassifications.slice(startIndex, endIndex);
+
+        renderClassificationList(currentPageData);
+        updatePaginationInfo();
+        renderPaginationControls();
+    }
+
+    // 渲染分类列表，现在只渲染当前页数据
+    function renderClassificationList(classifications) {
+        const container = document.getElementById('classification-list');
+        container.innerHTML = '';
+
+        classifications.forEach((item, index) => {
+            const globalIndex = (currentPage - 1) * pageSize + index;
+            const row = document.createElement('tr');
+            row.className = globalIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <div class="flex items-center">
+                    <i class="fas fa-image text-gray-400 mr-2"></i>
+                    <span class="truncate max-w-xs" title="${item.name}">${item.name}</span>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <select class="border border-gray-300 rounded px-3 py-1 category-select" data-image="${item.id}">
+                    <option value="">未分类</option>
+                    ${categories.map(cat =>
+                `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`
+            ).join('')}
+                </select>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <button onclick="updateClassification('${item.id}')"
+                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs">
+                    更新
+                </button>
+            </td>
+        `;
+            container.appendChild(row);
+        });
+    }
+
+    // 更新分页信息显示
+    function updatePaginationInfo() {
+        const startIndex = (currentPage - 1) * pageSize + 1;
+        const endIndex = Math.min(currentPage * pageSize, allClassifications.length);
+        const totalItems = allClassifications.length;
+
+        document.getElementById('pagination-info').textContent =
+            `显示第 ${startIndex}-${endIndex} 条，共 ${totalItems} 条记录`;
+    }
+
+    // 渲染分页控件
+    function renderPaginationControls() {
+        totalPages = Math.ceil(allClassifications.length / pageSize);
+        const pageNumbersContainer = document.getElementById('page-numbers');
+
+        // 清空现有页码按钮
+        pageNumbersContainer.innerHTML = '';
+
+        // 计算显示的页码范围
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        // 确保显示5个页码（如果可能）
+        if (endPage - startPage < 4) {
+            if (startPage === 1) {
+                endPage = Math.min(totalPages, startPage + 4);
+            } else if (endPage === totalPages) {
+                startPage = Math.max(1, endPage - 4);
+            }
+        }
+
+        // 生成页码按钮
+        for (let i = startPage; i <= endPage; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.className = `px-3 py-1 border rounded min-w-10 ${
+                i === currentPage
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`;
+            pageButton.textContent = i;
+            pageButton.onclick = () => goToPage(i);
+            pageNumbersContainer.appendChild(pageButton);
+        }
+
+        // 更新按钮状态
+        document.getElementById('first-page').disabled = currentPage === 1;
+        document.getElementById('prev-page').disabled = currentPage === 1;
+        document.getElementById('next-page').disabled = currentPage === totalPages;
+        document.getElementById('last-page').disabled = currentPage === totalPages;
+
+        // 如果只有一页，隐藏分页控件
+        const paginationContainer = document.querySelector('.flex.items-center.space-x-2');
+        if (totalPages <= 1) {
+            paginationContainer.classList.add('hidden');
+        } else {
+            paginationContainer.classList.remove('hidden');
+        }
+    }
+
+    // 改变页面大小
+    function changePageSize(newSize) {
+        pageSize = parseInt(newSize);
+        currentPage = 1;
+
+        // 保存到cookie和状态
+        localStorage.setItem('image_classifier_page_size', newSize);
+        appState.update({
+            pageSize: pageSize,
+            currentPage: currentPage
+        });
+
+        if (allClassifications.length > 0) {
+            renderCurrentPage();
+        }
+    }
+
+    // 页面导航函数
+    function goToPage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+
+        // 保存当前页码
+        appState.update({
+            currentPage: currentPage
+        });
+
+        renderCurrentPage();
+    }
+
+    function previousPage() {
+        if (currentPage > 1) {
+            goToPage(currentPage - 1);
+        }
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) {
+            goToPage(currentPage + 1);
+        }
+    }
+
+    // 更新分类
+    async function updateClassification(imageId) {
+        const select = document.querySelector(`select[data-image="${imageId}"]`);
+        const category = select.value;
+
+        showLoading('更新分类...');
+
+        try {
+            const response = await fetch('/api/update-classification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    image_id: imageId,
+                    category: category
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // 更新本地数据
+                const updatedItem = allClassifications.find(item => item.id === imageId);
+                if (updatedItem) {
+                    updatedItem.category = category;
+                }
+
+                // 显示成功提示
+                const button = document.querySelector(`select[data-image="${imageId}"]`).closest('tr').querySelector('button');
+                const originalText = button.textContent;
+                button.textContent = '✓ 已更新';
+                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                button.classList.add('bg-green-500', 'hover:bg-green-600');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    button.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                }, 2000);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
     }
 
     // 执行移动操作
@@ -1029,6 +1295,12 @@
             if (response.ok && data.success) {
                 document.getElementById('completion-message').textContent =
                     `成功移动了 ${data.moved_count} 个文件到指定分类文件夹。`;
+
+                // 保存状态
+                appState.update({
+                    currentStep: 5
+                });
+
                 showStep(5);
                 updateStepIndicator(5);
             } else {
@@ -1059,6 +1331,8 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
+                // 清除应用状态
+                appState.clear();
                 alert('临时文件清理完成！');
             } else {
                 alert('清理错误: ' + (data.error || '未知错误'));
@@ -1070,26 +1344,36 @@
         }
     }
 
+    // 开始新的分类会话
+    function startNewSession() {
+        // 清除应用状态
+        appState.clear();
+        // 重新加载页面开始新会话
+        window.location.reload();
+    }
+
     // 步骤导航
     function showStep(step) {
         document.querySelectorAll('.step-content').forEach(el => {
             el.classList.add('hidden');
         });
         document.getElementById(`step${step}-content`).classList.remove('hidden');
-        currentStep = step;
     }
 
     function backToStep1() {
+        appState.update({currentStep: 1});
         showStep(1);
         updateStepIndicator(1);
     }
 
     function backToStep2() {
+        appState.update({currentStep: 2});
         showStep(2);
         updateStepIndicator(2);
     }
 
     function backToStep3() {
+        appState.update({currentStep: 3});
         showStep(3);
         updateStepIndicator(3);
     }
@@ -1130,13 +1414,6 @@
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    function startNewSession() {
-        // 清理当前会话
-        cleanupSession();
-        // 重新加载页面开始新会话
-        window.location.reload();
     }
 </script>
 </body>
