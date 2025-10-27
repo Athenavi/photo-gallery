@@ -58,29 +58,29 @@
     <!-- 步骤内容 -->
     <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8">
         <!-- 步骤1: 选择文件夹 -->
+        <!-- 步骤1: 选择文件夹 - 修改版本 -->
         <div id="step1-content" class="step-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-6">选择图片文件夹和分类等级</h2>
 
             <div class="space-y-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">选择包含图片的文件夹</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">输入图片文件夹路径</label>
                     <div class="flex flex-col space-y-4">
-                        <!-- 文件输入框，支持文件夹选择 -->
-                        <input type="file" id="folder-input" webkitdirectory directory multiple
-                               class="hidden" accept="image/*">
                         <div class="flex space-x-4">
-                            <button type="button" onclick="document.getElementById('folder-input').click()"
+                            <input type="text" id="folder-path-input"
+                                   placeholder="请输入图片文件夹的完整路径，例如：C:\Users\用户名\Pictures 或 /home/用户名/Pictures"
+                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <button type="button" onclick="validateFolderPath()"
                                     class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center">
-                                <i class="fas fa-folder-open mr-2"></i>选择文件夹
+                                <i class="fas fa-check mr-2"></i>验证路径
                             </button>
-                            <div id="selected-folder-info"
-                                 class="flex-1 px-4 py-3 bg-gray-100 rounded-lg text-gray-600">
-                                未选择文件夹
-                            </div>
+                        </div>
+                        <div id="folder-validation-result" class="hidden">
+                            <!-- 验证结果将显示在这里 -->
                         </div>
                         <p class="text-sm text-gray-500">
                             <i class="fas fa-info-circle mr-1"></i>
-                            请选择一个包含图片的文件夹。系统将自动扫描该文件夹及其子文件夹中的所有图片文件。
+                            请输入包含图片的文件夹的完整路径。系统将扫描该文件夹及其子文件夹中的所有图片文件。
                         </p>
                     </div>
                 </div>
@@ -343,87 +343,159 @@
     let currentImageIndex = 0;
     let totalImages = 0;
     let currentImageId = null;
+    let folderPath = null;
+    let folderValidated = false;
 
     // 初始化
     document.addEventListener('DOMContentLoaded', function () {
         updateStepIndicator(1);
 
-        // 监听文件夹选择
-        document.getElementById('folder-input').addEventListener('change', handleFolderSelect);
+        // 监听输入框变化
+        document.getElementById('folder-path-input').addEventListener('input', function () {
+            folderValidated = false;
+            validateStep1();
+        });
 
         // 监听分类等级选择
         document.querySelectorAll('input[name="level"]').forEach(radio => {
             radio.addEventListener('change', validateStep1);
         });
+
+        // 监听回车键
+        document.getElementById('folder-path-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                validateFolderPath();
+            }
+        });
     });
 
-    // 处理文件夹选择
-    function handleFolderSelect(event) {
-        const files = event.target.files;
-        if (files.length > 0) {
-            // 过滤图片文件
-            const imageFiles = Array.from(files).filter(file =>
-                file.type.startsWith('image/')
-            );
+    // 验证文件夹路径
+    async function validateFolderPath() {
+        const pathInput = document.getElementById('folder-path-input');
+        const folderPath = pathInput.value.trim();
+        const validationResult = document.getElementById('folder-validation-result');
 
-            if (imageFiles.length === 0) {
-                alert('选择的文件夹中没有找到图片文件！');
-                return;
-            }
-
-            // 更新显示信息
-            document.getElementById('selected-folder-info').innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <span class="font-medium text-green-600">已选择文件夹</span>
-                            <p class="text-sm text-gray-500">包含 ${imageFiles.length} 个图片文件</p>
-                        </div>
-                        <i class="fas fa-check-circle text-green-500"></i>
-                    </div>
-                `;
-
-            // 保存文件信息到全局变量
-            window.selectedFiles = imageFiles;
-
-            validateStep1();
+        if (!folderPath) {
+            showValidationResult('error', '请输入文件夹路径');
+            return;
         }
-    }
 
-    // 步骤验证
-    function validateStep1() {
-        const hasFiles = window.selectedFiles && window.selectedFiles.length > 0;
-        const levelSelected = document.querySelector('input[name="level"]:checked');
-        const nextButton = document.getElementById('step1-next');
-
-        nextButton.disabled = !(hasFiles && levelSelected);
-    }
-
-    // 步骤1 -> 步骤2
-    async function proceedToStep2() {
-        const level = document.querySelector('input[name="level"]:checked').value;
-        const files = window.selectedFiles;
-
-        showLoading('正在上传和分析图片...');
+        showLoading('正在验证文件夹路径...');
 
         try {
-            const formData = new FormData();
-            formData.append('session_id', currentSessionId);
-            formData.append('level', level);
-
-            // 添加所有文件
-            files.forEach(file => {
-                formData.append('files', file);
-            });
-
-            const response = await fetch('/api/upload-files', {
+            const response = await fetch('/api/validate-folder', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    folder_path: folderPath
+                })
             });
 
             const data = await response.json();
 
             if (response.ok && data.success) {
-                categories = data.available_categories;
+                showValidationResult('success',
+                    `路径验证成功！找到 ${data.image_count} 个图片文件`,
+                    data.preview_files);
+                folderValidated = true;
+                validateStep1();
+            } else {
+                showValidationResult('error', data.error || '路径验证失败');
+                folderValidated = false;
+            }
+        } catch (error) {
+            showValidationResult('error', '网络错误: ' + error.message);
+            folderValidated = false;
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 显示验证结果
+    function showValidationResult(type, message, previewFiles = []) {
+        const validationResult = document.getElementById('folder-validation-result');
+
+        let icon, bgColor, textColor;
+        if (type === 'success') {
+            icon = 'fa-check-circle';
+            bgColor = 'bg-green-50';
+            textColor = 'text-green-700';
+            borderColor = 'border-green-200';
+        } else {
+            icon = 'fa-exclamation-circle';
+            bgColor = 'bg-red-50';
+            textColor = 'text-red-700';
+            borderColor = 'border-red-200';
+        }
+
+        let previewHtml = '';
+        if (previewFiles.length > 0) {
+            previewHtml = `
+            <div class="mt-3">
+                <p class="text-sm font-medium ${textColor}">预览文件:</p>
+                <div class="mt-2 max-h-32 overflow-y-auto">
+                    ${previewFiles.slice(0, 10).map(file =>
+                `<div class="text-xs text-gray-600 py-1 border-b border-gray-100">
+                            <i class="fas fa-image mr-2 text-gray-400"></i>${file}
+                        </div>`
+            ).join('')}
+                    ${previewFiles.length > 10 ?
+                `<div class="text-xs text-gray-500 py-1">... 还有 ${previewFiles.length - 10} 个文件</div>` : ''}
+                </div>
+            </div>
+        `;
+        }
+
+        validationResult.innerHTML = `
+        <div class="p-4 ${bgColor} border ${borderColor} rounded-lg">
+            <div class="flex items-start">
+                <i class="fas ${icon} ${textColor} mt-1 mr-3"></i>
+                <div class="flex-1">
+                    <p class="${textColor}">${message}</p>
+                    ${previewHtml}
+                </div>
+            </div>
+        </div>
+    `;
+        validationResult.classList.remove('hidden');
+    }
+
+    // 步骤验证
+    function validateStep1() {
+        const levelSelected = document.querySelector('input[name="level"]:checked');
+        const pathEntered = document.getElementById('folder-path-input').value.trim().length > 0;
+        const nextButton = document.getElementById('step1-next');
+
+        nextButton.disabled = !(levelSelected && pathEntered && folderValidated);
+    }
+
+    // 步骤1 -> 步骤2
+    async function proceedToStep2() {
+        const level = document.querySelector('input[name="level"]:checked').value;
+        folderPath = document.getElementById('folder-path-input').value.trim();
+
+        showLoading('正在扫描文件夹中的图片...');
+
+        try {
+            const response = await fetch('/api/select-folder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    folder_path: folderPath,
+                    level: level
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                categories = data.available_categories || [];
                 renderCategories();
                 showStep(2);
                 updateStepIndicator(2);
@@ -432,6 +504,7 @@
             }
         } catch (error) {
             alert('网络错误: ' + error.message);
+            console.error('API调用错误:', error);
         } finally {
             hideLoading();
         }
@@ -521,7 +594,7 @@
         });
     }
 
-    // 加载下一张图片
+    // 加载下一张图片（使用真实图片URL）
     async function loadNextImage() {
         showLoading('加载图片...');
 
@@ -567,11 +640,17 @@
                 };
 
                 img.onerror = function () {
-                    document.getElementById('current-image').src = '/static/images/placeholder.png';
+                    // 如果加载失败，显示占位符
+                    document.getElementById('current-image').src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjIwMCIgeT0iMTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5YzljOWMiPkltYWdlIFByZXZpZXc8L3RleHQ+PHRleHQgeD0iMjAwIiB5PSIxODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljOWM5YyI+' + data.image.name + '</text></svg>';
                     document.getElementById('current-image').classList.remove('hidden');
                     document.getElementById('image-loading').classList.add('hidden');
+
+                    document.getElementById('image-name').textContent = data.image.name;
+                    document.getElementById('image-size').textContent = formatFileSize(data.image.size);
                 };
+
                 img.src = imageUrl;
+
                 updateProgress();
             }
         } catch (error) {
