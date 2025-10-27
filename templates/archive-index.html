@@ -250,6 +250,7 @@
         </div>
 
         <!-- 步骤4: 确认操作 -->
+        <!-- 步骤4: 确认操作 - 添加分页 -->
         <div id="step4-content" class="step-content hidden">
             <h2 class="text-2xl font-bold text-gray-800 mb-6">确认分类操作</h2>
 
@@ -260,6 +261,47 @@
                         <p class="text-blue-700 font-medium">请确认以下分类操作</p>
                         <p class="text-blue-600 text-sm mt-1">您可以单独修改每一项的分类</p>
                     </div>
+                </div>
+            </div>
+
+            <!-- 分页控制 -->
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <label class="text-sm text-gray-700">每页显示:</label>
+                        <select id="page-size-select" onchange="changePageSize(this.value)"
+                                class="border border-gray-300 rounded px-3 py-1 text-sm">
+                            <option value="20">20条</option>
+                            <option value="50" selected>50条</option>
+                            <option value="100">100条</option>
+                            <option value="200">200条</option>
+                        </select>
+                    </div>
+                    <span id="pagination-info" class="text-sm text-gray-600"></span>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button id="first-page" onclick="goToPage(1)"
+                            class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-angle-double-left"></i>
+                    </button>
+                    <button id="prev-page" onclick="previousPage()"
+                            class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-angle-left"></i>
+                    </button>
+
+                    <div id="page-numbers" class="flex space-x-1">
+                        <!-- 页码按钮将动态生成 -->
+                    </div>
+
+                    <button id="next-page" onclick="nextPage()"
+                            class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-angle-right"></i>
+                    </button>
+                    <button id="last-page" onclick="goToPage(totalPages)"
+                            class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-angle-double-right"></i>
+                    </button>
                 </div>
             </div>
 
@@ -284,6 +326,12 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- 空状态提示 -->
+            <div id="empty-state" class="hidden text-center py-12">
+                <i class="fas fa-inbox text-gray-300 text-4xl mb-4"></i>
+                <p class="text-gray-500">暂无分类数据</p>
             </div>
 
             <div class="mt-8 flex justify-between">
@@ -345,10 +393,263 @@
     let currentImageId = null;
     let folderPath = null;
     let folderValidated = false;
+    // 分页相关全局变量
+    let currentPage = 1;
+    let pageSize = 50;
+    let totalPages = 1;
+    let allClassifications = [];
+
+    // 初始化分页设置
+    function initPagination() {
+        // 从localStorage读取页面大小设置
+        const savedPageSize = localStorage.getItem('image_classifier_page_size');
+        if (savedPageSize) {
+            pageSize = parseInt(savedPageSize);
+            document.getElementById('page-size-select').value = pageSize;
+        }
+    }
+
+    // 改变页面大小
+    function changePageSize(newSize) {
+        pageSize = parseInt(newSize);
+        currentPage = 1; // 重置到第一页
+
+        // 保存到localStorage
+        localStorage.setItem('image_classifier_page_size', newSize);
+
+        // 重新渲染当前数据
+        if (allClassifications.length > 0) {
+            renderCurrentPage();
+        }
+    }
+
+    // 渲染当前页面
+    function renderCurrentPage() {
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const currentPageData = allClassifications.slice(startIndex, endIndex);
+
+        renderClassificationList(currentPageData);
+        updatePaginationInfo();
+        renderPaginationControls();
+    }
+
+    // 更新分页信息显示
+    function updatePaginationInfo() {
+        const startIndex = (currentPage - 1) * pageSize + 1;
+        const endIndex = Math.min(currentPage * pageSize, allClassifications.length);
+        const totalItems = allClassifications.length;
+
+        document.getElementById('pagination-info').textContent =
+            `显示第 ${startIndex}-${endIndex} 条，共 ${totalItems} 条记录`;
+    }
+
+    // 渲染分页控件
+    function renderPaginationControls() {
+        totalPages = Math.ceil(allClassifications.length / pageSize);
+        const pageNumbersContainer = document.getElementById('page-numbers');
+
+        // 清空现有页码按钮
+        pageNumbersContainer.innerHTML = '';
+
+        // 计算显示的页码范围
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        // 确保显示5个页码（如果可能）
+        if (endPage - startPage < 4) {
+            if (startPage === 1) {
+                endPage = Math.min(totalPages, startPage + 4);
+            } else if (endPage === totalPages) {
+                startPage = Math.max(1, endPage - 4);
+            }
+        }
+
+        // 生成页码按钮
+        for (let i = startPage; i <= endPage; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.className = `px-3 py-1 border rounded min-w-10 ${
+                i === currentPage
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`;
+            pageButton.textContent = i;
+            pageButton.onclick = () => goToPage(i);
+            pageNumbersContainer.appendChild(pageButton);
+        }
+
+        // 更新按钮状态
+        document.getElementById('first-page').disabled = currentPage === 1;
+        document.getElementById('prev-page').disabled = currentPage === 1;
+        document.getElementById('next-page').disabled = currentPage === totalPages;
+        document.getElementById('last-page').disabled = currentPage === totalPages;
+
+        // 如果只有一页，隐藏分页控件
+        const paginationContainer = document.querySelector('.flex.items-center.space-x-2');
+        if (totalPages <= 1) {
+            paginationContainer.classList.add('hidden');
+        } else {
+            paginationContainer.classList.remove('hidden');
+        }
+    }
+
+    // 页面导航函数
+    function goToPage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderCurrentPage();
+    }
+
+    function previousPage() {
+        if (currentPage > 1) {
+            goToPage(currentPage - 1);
+        }
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) {
+            goToPage(currentPage + 1);
+        }
+    }
+
+    // 修改加载分类结果的函数
+    async function loadClassifications() {
+        showLoading('加载分类结果...');
+
+        try {
+            const response = await fetch('/api/get-classifications', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                allClassifications = data.classifications || [];
+
+                // 初始化分页
+                initPagination();
+
+                if (allClassifications.length === 0) {
+                    // 显示空状态
+                    document.getElementById('classification-list').innerHTML = '';
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.querySelector('.overflow-x-auto').classList.add('hidden');
+                } else {
+                    // 隐藏空状态，显示表格
+                    document.getElementById('empty-state').classList.add('hidden');
+                    document.querySelector('.overflow-x-auto').classList.remove('hidden');
+
+                    // 渲染第一页
+                    currentPage = 1;
+                    renderCurrentPage();
+                }
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 修改渲染分类列表函数，现在只渲染当前页数据
+    function renderClassificationList(classifications) {
+        const container = document.getElementById('classification-list');
+        container.innerHTML = '';
+
+        classifications.forEach((item, index) => {
+            const globalIndex = (currentPage - 1) * pageSize + index;
+            const row = document.createElement('tr');
+            row.className = globalIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <div class="flex items-center">
+                    <i class="fas fa-image text-gray-400 mr-2"></i>
+                    <span class="truncate max-w-xs" title="${item.name}">${item.name}</span>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <select class="border border-gray-300 rounded px-3 py-1 category-select" data-image="${item.id}">
+                    <option value="">未分类</option>
+                    ${categories.map(cat =>
+                `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`
+            ).join('')}
+                </select>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <button onclick="updateClassification('${item.id}')"
+                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs">
+                    更新
+                </button>
+            </td>
+        `;
+            container.appendChild(row);
+        });
+    }
+
+    // 修改更新分类函数，保持当前页面位置
+    async function updateClassification(imageId) {
+        const select = document.querySelector(`select[data-image="${imageId}"]`);
+        const category = select.value;
+
+        showLoading('更新分类...');
+
+        try {
+            const response = await fetch('/api/update-classification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    image_id: imageId,
+                    category: category
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // 更新本地数据
+                const updatedItem = allClassifications.find(item => item.id === imageId);
+                if (updatedItem) {
+                    updatedItem.category = category;
+                }
+
+                // 显示成功提示
+                const button = document.querySelector(`select[data-image="${imageId}"]`).closest('tr').querySelector('button');
+                const originalText = button.textContent;
+                button.textContent = '✓ 已更新';
+                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                button.classList.add('bg-green-500', 'hover:bg-green-600');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    button.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                }, 2000);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
 
     // 初始化
     document.addEventListener('DOMContentLoaded', function () {
         updateStepIndicator(1);
+        initPagination(); // 初始化分页设置
 
         // 监听输入框变化
         document.getElementById('folder-path-input').addEventListener('input', function () {
@@ -706,114 +1007,6 @@
         showStep(4);
         updateStepIndicator(4);
         await loadClassifications();
-    }
-
-    // 加载分类结果
-    async function loadClassifications() {
-        showLoading('加载分类结果...');
-
-        try {
-            const response = await fetch('/api/get-classifications', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: currentSessionId
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                renderClassificationList(data.classifications);
-            } else {
-                alert('错误: ' + (data.error || '未知错误'));
-            }
-        } catch (error) {
-            alert('网络错误: ' + error.message);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // 渲染分类列表
-    function renderClassificationList(classifications) {
-        const container = document.getElementById('classification-list');
-        container.innerHTML = '';
-
-        classifications.forEach((item, index) => {
-            const row = document.createElement('tr');
-            row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-            row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        <div class="flex items-center">
-                            <i class="fas fa-image text-gray-400 mr-2"></i>
-                            ${item.name}
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select class="border border-gray-300 rounded px-3 py-1 category-select" data-image="${item.id}">
-                            <option value="">未分类</option>
-                            ${categories.map(cat =>
-                `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`
-            ).join('')}
-                        </select>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button onclick="updateClassification('${item.id}')"
-                                class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs">
-                            更新
-                        </button>
-                    </td>
-                `;
-            container.appendChild(row);
-        });
-    }
-
-    // 更新分类
-    async function updateClassification(imageId) {
-        const select = document.querySelector(`select[data-image="${imageId}"]`);
-        const category = select.value;
-
-        showLoading('更新分类...');
-
-        try {
-            const response = await fetch('/api/update-classification', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: currentSessionId,
-                    image_id: imageId,
-                    category: category
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                // 显示成功提示
-                const button = document.querySelector(`select[data-image="${imageId}"]`).closest('tr').querySelector('button');
-                const originalText = button.textContent;
-                button.textContent = '✓ 已更新';
-                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                button.classList.add('bg-green-500', 'hover:bg-green-600');
-
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
-                    button.classList.add('bg-blue-500', 'hover:bg-blue-600');
-                }, 2000);
-            } else {
-                alert('错误: ' + (data.error || '未知错误'));
-            }
-        } catch (error) {
-            alert('网络错误: ' + error.message);
-        } finally {
-            hideLoading();
-        }
     }
 
     // 执行移动操作
