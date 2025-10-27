@@ -107,6 +107,10 @@ def select_folder():
                 categories.add(f"{mod_time.year}-{mod_time.month:02d}")
             elif level == 'date':
                 categories.add(f"{mod_time.year}-{mod_time.month:02d}-{mod_time.day:02d}")
+            elif level == 'only_month':
+                categories.add(f"{mod_time.month:02d}")
+            elif level == 'only_date':
+                categories.add(f"{mod_time.day:02d}")
         except Exception as e:
             print(f"处理文件 {image['name']} 的时间信息时出错: {e}")
 
