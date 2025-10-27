@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片分类工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div class="container mx-auto px-4 py-8">
+    <!-- 头部 -->
+    <header class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-800 mb-4">图片分类工具</h1>
+        <p class="text-lg text-gray-600">简单易用的引导式图片分类解决方案</p>
+    </header>
+
+    <!-- 进度指示器 -->
+    <div class="max-w-4xl mx-auto mb-12">
+        <div class="flex items-center justify-between">
+            <div class="step flex-1 text-center" data-step="1">
+                <div class="w-12 h-12 mx-auto rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-lg step-circle">
+                    1
+                </div>
+                <p class="mt-2 text-sm font-medium text-gray-700">选择文件夹</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-300 mx-2"></div>
+            <div class="step flex-1 text-center" data-step="2">
+                <div class="w-12 h-12 mx-auto rounded-full bg-gray-300 text-white flex items-center justify-center font-bold text-lg step-circle">
+                    2
+                </div>
+                <p class="mt-2 text-sm font-medium text-gray-500">选择分类</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-300 mx-2"></div>
+            <div class="step flex-1 text-center" data-step="3">
+                <div class="w-12 h-12 mx-auto rounded-full bg-gray-300 text-white flex items-center justify-center font-bold text-lg step-circle">
+                    3
+                </div>
+                <p class="mt-2 text-sm font-medium text-gray-500">分类图片</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-300 mx-2"></div>
+            <div class="step flex-1 text-center" data-step="4">
+                <div class="w-12 h-12 mx-auto rounded-full bg-gray-300 text-white flex items-center justify-center font-bold text-lg step-circle">
+                    4
+                </div>
+                <p class="mt-2 text-sm font-medium text-gray-500">确认操作</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-300 mx-2"></div>
+            <div class="step flex-1 text-center" data-step="5">
+                <div class="w-12 h-12 mx-auto rounded-full bg-gray-300 text-white flex items-center justify-center font-bold text-lg step-circle">
+                    5
+                </div>
+                <p class="mt-2 text-sm font-medium text-gray-500">完成</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 步骤内容 -->
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8">
+        <!-- 步骤1: 选择文件夹 -->
+        <div id="step1-content" class="step-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">选择图片文件夹和分类等级</h2>
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">选择包含图片的文件夹</label>
+                    <div class="flex flex-col space-y-4">
+                        <!-- 文件输入框，支持文件夹选择 -->
+                        <input type="file" id="folder-input" webkitdirectory directory multiple
+                               class="hidden" accept="image/*">
+                        <div class="flex space-x-4">
+                            <button type="button" onclick="document.getElementById('folder-input').click()"
+                                    class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center">
+                                <i class="fas fa-folder-open mr-2"></i>选择文件夹
+                            </button>
+                            <div id="selected-folder-info"
+                                 class="flex-1 px-4 py-3 bg-gray-100 rounded-lg text-gray-600">
+                                未选择文件夹
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            请选择一个包含图片的文件夹。系统将自动扫描该文件夹及其子文件夹中的所有图片文件。
+                        </p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">选择分类等级</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="classification-option relative">
+                            <input type="radio" name="level" value="year" id="level-year" class="hidden peer">
+                            <label for="level-year"
+                                   class="block p-4 border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 transition-all">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full border-2 border-gray-300 peer-checked:border-blue-500 flex items-center justify-center mr-3">
+                                        <div class="w-4 h-4 rounded-full bg-blue-500 hidden peer-checked:block"></div>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-800">按年份分类</h3>
+                                        <p class="text-sm text-gray-600">例如: 2023, 2024</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="classification-option relative">
+                            <input type="radio" name="level" value="month" id="level-month" class="hidden peer">
+                            <label for="level-month"
+                                   class="block p-4 border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 transition-all">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full border-2 border-gray-300 peer-checked:border-blue-500 flex items-center justify-center mr-3">
+                                        <div class="w-4 h-4 rounded-full bg-blue-500 hidden peer-checked:block"></div>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-800">按月份分类</h3>
+                                        <p class="text-sm text-gray-600">例如: 2023-01, 2023-02</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="classification-option relative">
+                            <input type="radio" name="level" value="date" id="level-date" class="hidden peer">
+                            <label for="level-date"
+                                   class="block p-4 border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 transition-all">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full border-2 border-gray-300 peer-checked:border-blue-500 flex items-center justify-center mr-3">
+                                        <div class="w-4 h-4 rounded-full bg-blue-500 hidden peer-checked:block"></div>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-800">按日期分类</h3>
+                                        <p class="text-sm text-gray-600">例如: 2023-01-15, 2023-01-16</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end">
+                <button onclick="proceedToStep2()"
+                        class="px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        id="step1-next" disabled>
+                    下一步 <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 步骤2: 选择分类 -->
+        <div id="step2-content" class="step-content hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">选择要创建的分类文件夹</h2>
+
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                    <p class="text-blue-700">系统检测到以下分类，请选择您要创建的文件夹：</p>
+                </div>
+            </div>
+
+            <div id="categories-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+                <!-- 分类选项将动态加载到这里 -->
+            </div>
+
+            <div class="mt-8 flex justify-between">
+                <button onclick="backToStep1()"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>上一步
+                </button>
+                <button onclick="proceedToStep3()"
+                        class="px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        id="step2-next" disabled>
+                    下一步 <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 步骤3: 分类图片 -->
+        <div id="step3-content" class="step-content hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">分类图片</h2>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- 图片显示区域 -->
+                <div class="lg:w-1/2">
+                    <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600" id="progress-text">图片 1 / 0</span>
+                            <div class="w-32 bg-gray-200 rounded-full h-2">
+                                <div id="progress-bar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-white">
+                        <div id="image-container" class="text-center">
+                            <img id="current-image" src="" alt="当前图片"
+                                 class="max-w-full h-auto rounded-lg shadow-sm mx-auto max-h-96 object-contain hidden">
+                            <div id="image-loading" class="py-12">
+                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                                <p class="text-gray-500">加载图片中...</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <p id="image-name" class="text-sm text-gray-600 font-medium"></p>
+                            <p id="image-size" class="text-xs text-gray-500"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分类操作区域 -->
+                <div class="lg:w-1/2">
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">选择分类</h3>
+
+                        <div class="space-y-3 mb-6" id="category-buttons">
+                            <!-- 分类按钮将动态加载到这里 -->
+                        </div>
+
+                        <div class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                            <div class="flex items-start">
+                                <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-3"></i>
+                                <div>
+                                    <p class="text-yellow-700 font-medium">提示</p>
+                                    <p class="text-yellow-600 text-sm mt-1">
+                                        点击右侧分类按钮将当前图片移动到对应文件夹</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 flex justify-between">
+                            <button onclick="skipImage()"
+                                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                跳过 <i class="fas fa-forward ml-1"></i>
+                            </button>
+                            <div class="space-x-3">
+                                <button onclick="backToStep2()"
+                                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                    <i class="fas fa-arrow-left mr-2"></i>上一步
+                                </button>
+                                <button onclick="finishClassification()"
+                                        class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                                    完成分类 <i class="fas fa-check ml-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 步骤4: 确认操作 -->
+        <div id="step4-content" class="step-content hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">确认分类操作</h2>
+
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-check-circle text-blue-500 mt-1 mr-3"></i>
+                    <div>
+                        <p class="text-blue-700 font-medium">请确认以下分类操作</p>
+                        <p class="text-blue-600 text-sm mt-1">您可以单独修改每一项的分类</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                图片名称
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                目标分类
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="classification-list" class="bg-white divide-y divide-gray-200">
+                        <!-- 分类列表将动态加载到这里 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-between">
+                <button onclick="backToStep3()"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>上一步
+                </button>
+                <button onclick="executeMove()"
+                        class="px-8 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                    确认并开始移动 <i class="fas fa-play ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 步骤5: 完成 -->
+        <div id="step5-content" class="step-content hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">分类完成</h2>
+
+            <div class="text-center py-12">
+                <div class="w-24 h-24 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check text-green-500 text-4xl"></i>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">图片分类完成！</h3>
+                <p class="text-gray-600 mb-8" id="completion-message">所有图片已成功分类到指定文件夹</p>
+
+                <div class="flex justify-center space-x-4">
+                    <button onclick="startNewSession()"
+                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>开始新的分类
+                    </button>
+                    <button onclick="cleanupSession()"
+                            class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-trash mr-2"></i>清理临时文件
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 加载指示器 -->
+<div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-8 max-w-sm w-full mx-4">
+        <div class="flex items-center justify-center mb-4">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+        <p class="text-center text-gray-700" id="loading-message">处理中...</p>
+    </div>
+</div>
+
+<script>
+    // 全局变量
+    let currentSessionId = '{{ session_id }}';
+    let currentStep = 1;
+    let categories = [];
+    let currentImageIndex = 0;
+    let totalImages = 0;
+    let currentImageId = null;
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        updateStepIndicator(1);
+
+        // 监听文件夹选择
+        document.getElementById('folder-input').addEventListener('change', handleFolderSelect);
+
+        // 监听分类等级选择
+        document.querySelectorAll('input[name="level"]').forEach(radio => {
+            radio.addEventListener('change', validateStep1);
+        });
+    });
+
+    // 处理文件夹选择
+    function handleFolderSelect(event) {
+        const files = event.target.files;
+        if (files.length > 0) {
+            // 过滤图片文件
+            const imageFiles = Array.from(files).filter(file =>
+                file.type.startsWith('image/')
+            );
+
+            if (imageFiles.length === 0) {
+                alert('选择的文件夹中没有找到图片文件！');
+                return;
+            }
+
+            // 更新显示信息
+            document.getElementById('selected-folder-info').innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="font-medium text-green-600">已选择文件夹</span>
+                            <p class="text-sm text-gray-500">包含 ${imageFiles.length} 个图片文件</p>
+                        </div>
+                        <i class="fas fa-check-circle text-green-500"></i>
+                    </div>
+                `;
+
+            // 保存文件信息到全局变量
+            window.selectedFiles = imageFiles;
+
+            validateStep1();
+        }
+    }
+
+    // 步骤验证
+    function validateStep1() {
+        const hasFiles = window.selectedFiles && window.selectedFiles.length > 0;
+        const levelSelected = document.querySelector('input[name="level"]:checked');
+        const nextButton = document.getElementById('step1-next');
+
+        nextButton.disabled = !(hasFiles && levelSelected);
+    }
+
+    // 步骤1 -> 步骤2
+    async function proceedToStep2() {
+        const level = document.querySelector('input[name="level"]:checked').value;
+        const files = window.selectedFiles;
+
+        showLoading('正在上传和分析图片...');
+
+        try {
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('level', level);
+
+            // 添加所有文件
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+
+            const response = await fetch('/api/upload-files', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                categories = data.available_categories;
+                renderCategories();
+                showStep(2);
+                updateStepIndicator(2);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 渲染分类选项
+    function renderCategories() {
+        const container = document.getElementById('categories-container');
+        container.innerHTML = '';
+
+        categories.forEach(category => {
+            const categoryElement = document.createElement('div');
+            categoryElement.className = 'category-option';
+            categoryElement.innerHTML = `
+                    <input type="checkbox" id="cat-${category}" value="${category}" class="hidden peer" onchange="validateStep2()">
+                    <label for="cat-${category}" class="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 transition-all">
+                        <div class="w-6 h-6 rounded border-2 border-gray-300 peer-checked:border-blue-500 peer-checked:bg-blue-500 flex items-center justify-center mr-3">
+                            <i class="fas fa-check text-white text-xs hidden peer-checked:block"></i>
+                        </div>
+                        <span class="text-gray-800 font-medium">${category}</span>
+                    </label>
+                `;
+            container.appendChild(categoryElement);
+        });
+    }
+
+    // 验证步骤2
+    function validateStep2() {
+        const selectedCategories = document.querySelectorAll('input[type="checkbox"]:checked');
+        const nextButton = document.getElementById('step2-next');
+        nextButton.disabled = selectedCategories.length === 0;
+    }
+
+    // 步骤2 -> 步骤3
+    async function proceedToStep3() {
+        const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+        const selectedCategories = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+        showLoading('正在准备分类...');
+
+        try {
+            const response = await fetch('/api/select-categories', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    selected_categories: selectedCategories
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                renderCategoryButtons(selectedCategories);
+                await loadNextImage();
+                showStep(3);
+                updateStepIndicator(3);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 渲染分类按钮
+    function renderCategoryButtons(categories) {
+        const container = document.getElementById('category-buttons');
+        container.innerHTML = '';
+
+        categories.forEach(category => {
+            const button = document.createElement('button');
+            button.className = 'w-full px-4 py-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors category-button';
+            button.setAttribute('data-category', category);
+            button.onclick = () => classifyCurrentImage(category);
+            button.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium text-gray-800">${category}</span>
+                        <i class="fas fa-folder text-gray-400"></i>
+                    </div>
+                `;
+            container.appendChild(button);
+        });
+    }
+
+    // 加载下一张图片
+    async function loadNextImage() {
+        showLoading('加载图片...');
+
+        try {
+            const response = await fetch('/api/get-next-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.done) {
+                await finishClassification();
+                return;
+            }
+
+            if (data.image) {
+                currentImageId = data.image.id;
+                currentImageIndex = data.current_index;
+                totalImages = data.total_count;
+
+                // 显示图片加载状态
+                document.getElementById('current-image').classList.add('hidden');
+                document.getElementById('image-loading').classList.remove('hidden');
+
+                // 加载真实图片
+                const imageUrl = `/api/image/${currentSessionId}/${data.image.id}`;
+                const img = new Image();
+
+                img.onload = function () {
+                    document.getElementById('current-image').src = imageUrl;
+                    document.getElementById('current-image').classList.remove('hidden');
+                    document.getElementById('image-loading').classList.add('hidden');
+
+                    // 更新图片信息
+                    document.getElementById('image-name').textContent = data.image.name;
+                    document.getElementById('image-size').textContent = formatFileSize(data.image.size);
+                };
+
+                img.onerror = function () {
+                    document.getElementById('current-image').src = '/static/images/placeholder.png';
+                    document.getElementById('current-image').classList.remove('hidden');
+                    document.getElementById('image-loading').classList.add('hidden');
+                };
+                img.src = imageUrl;
+                updateProgress();
+            }
+        } catch (error) {
+            alert('加载图片错误: ' + error.message);
+            hideLoading();
+        }
+    }
+
+    // 更新进度
+    function updateProgress() {
+        const progress = ((currentImageIndex + 1) / totalImages) * 100;
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+        document.getElementById('progress-text').textContent = `图片 ${currentImageIndex + 1} / ${totalImages}`;
+    }
+
+    // 分类当前图片
+    async function classifyCurrentImage(category) {
+        showLoading('保存分类...');
+
+        try {
+            const response = await fetch('/api/classify-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    category: category
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                await loadNextImage();
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 跳过图片
+    async function skipImage() {
+        await classifyCurrentImage('');
+    }
+
+    // 完成分类
+    async function finishClassification() {
+        showStep(4);
+        updateStepIndicator(4);
+        await loadClassifications();
+    }
+
+    // 加载分类结果
+    async function loadClassifications() {
+        showLoading('加载分类结果...');
+
+        try {
+            const response = await fetch('/api/get-classifications', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                renderClassificationList(data.classifications);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 渲染分类列表
+    function renderClassificationList(classifications) {
+        const container = document.getElementById('classification-list');
+        container.innerHTML = '';
+
+        classifications.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div class="flex items-center">
+                            <i class="fas fa-image text-gray-400 mr-2"></i>
+                            ${item.name}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <select class="border border-gray-300 rounded px-3 py-1 category-select" data-image="${item.id}">
+                            <option value="">未分类</option>
+                            ${categories.map(cat =>
+                `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`
+            ).join('')}
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button onclick="updateClassification('${item.id}')"
+                                class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs">
+                            更新
+                        </button>
+                    </td>
+                `;
+            container.appendChild(row);
+        });
+    }
+
+    // 更新分类
+    async function updateClassification(imageId) {
+        const select = document.querySelector(`select[data-image="${imageId}"]`);
+        const category = select.value;
+
+        showLoading('更新分类...');
+
+        try {
+            const response = await fetch('/api/update-classification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    image_id: imageId,
+                    category: category
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // 显示成功提示
+                const button = document.querySelector(`select[data-image="${imageId}"]`).closest('tr').querySelector('button');
+                const originalText = button.textContent;
+                button.textContent = '✓ 已更新';
+                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                button.classList.add('bg-green-500', 'hover:bg-green-600');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    button.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                }, 2000);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 执行移动操作
+    async function executeMove() {
+        showLoading('正在移动文件...');
+
+        try {
+            const response = await fetch('/api/execute-move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                document.getElementById('completion-message').textContent =
+                    `成功移动了 ${data.moved_count} 个文件到指定分类文件夹。`;
+                showStep(5);
+                updateStepIndicator(5);
+            } else {
+                alert('错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 清理会话
+    async function cleanupSession() {
+        showLoading('清理临时文件...');
+
+        try {
+            const response = await fetch('/api/cleanup-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                alert('临时文件清理完成！');
+            } else {
+                alert('清理错误: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 步骤导航
+    function showStep(step) {
+        document.querySelectorAll('.step-content').forEach(el => {
+            el.classList.add('hidden');
+        });
+        document.getElementById(`step${step}-content`).classList.remove('hidden');
+        currentStep = step;
+    }
+
+    function backToStep1() {
+        showStep(1);
+        updateStepIndicator(1);
+    }
+
+    function backToStep2() {
+        showStep(2);
+        updateStepIndicator(2);
+    }
+
+    function backToStep3() {
+        showStep(3);
+        updateStepIndicator(3);
+    }
+
+    // 更新步骤指示器
+    function updateStepIndicator(step) {
+        document.querySelectorAll('.step').forEach((el, index) => {
+            const circle = el.querySelector('.step-circle');
+            const text = el.querySelector('p');
+
+            if (index + 1 <= step) {
+                circle.classList.remove('bg-gray-300');
+                circle.classList.add('bg-blue-500');
+                text.classList.remove('text-gray-500');
+                text.classList.add('text-gray-700');
+            } else {
+                circle.classList.remove('bg-blue-500');
+                circle.classList.add('bg-gray-300');
+                text.classList.remove('text-gray-700');
+                text.classList.add('text-gray-500');
+            }
+        });
+    }
+
+    // 工具函数
+    function showLoading(message = '处理中...') {
+        document.getElementById('loading-message').textContent = message;
+        document.getElementById('loading-overlay').classList.remove('hidden');
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function startNewSession() {
+        // 清理当前会话
+        cleanupSession();
+        // 重新加载页面开始新会话
+        window.location.reload();
+    }
+</script>
+</body>
+</html>
