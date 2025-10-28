@@ -236,6 +236,8 @@
                         <div class="mt-4 text-center">
                             <p id="image-name" class="text-sm text-gray-600 font-medium"></p>
                             <p id="image-size" class="text-xs text-gray-500"></p>
+                            <p id="image-modify-time" class="text-xs text-gray-500"></p>
+                            <p id="image-created-time" class="text-xs text-gray-500"></p>
                         </div>
                     </div>
                 </div>
@@ -986,6 +988,8 @@
                     // 更新图片信息
                     document.getElementById('image-name').textContent = data.image.name;
                     document.getElementById('image-size').textContent = formatFileSize(data.image.size);
+                    document.getElementById('image-modify-time').textContent = "拍摄于" + timestampToString(data.image.modify_time);
+                    document.getElementById('image-created-time').textContent = "存储于" + timestampToString(data.image.created_time);
                 };
 
                 img.onerror = function () {
@@ -1447,6 +1451,22 @@
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
+
+    function timestampToString(timestamp) {
+        if (typeof timestamp !== 'number' || isNaN(timestamp)) {
+            return '-';
+        }
+        // 假设传入的 timestamp 是秒数，转换为毫秒数
+        const date = new Date(timestamp * 1000);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // 月份从0开始，需要加1
+        const day = date.getDate();
+        // 确保月份和日期是两位数
+        const formattedMonth = month.toString().padStart(2, '0');
+        const formattedDay = day.toString().padStart(2, '0');
+        return `${year}-${formattedMonth}-${formattedDay}`;
+    }
+
 </script>
 </body>
 </html>

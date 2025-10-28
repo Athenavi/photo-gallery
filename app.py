@@ -1,9 +1,11 @@
 import hashlib
 import json
 from datetime import datetime
+from pathlib import Path
+
 from flask import Flask, render_template, send_from_directory, make_response, request
 from flask_caching import Cache
-from pathlib import Path
+
 import config
 from photo_utils import get_photo_structure, get_day_photos
 
@@ -56,7 +58,7 @@ def day_view(year, month, day):
 
 @app.route('/<path:filename>')
 def serve_photo(filename):
-    response = send_from_directory(app.config['PHOTO_ROOT'], filename, as_attachment=True)
+    response = send_from_directory(app.config['PHOTO_ROOT'], filename)
     response = make_response(response)
     response.set_etag(get_etag())
     response.headers['Cache-Control'] = 'public, max-age=1800'

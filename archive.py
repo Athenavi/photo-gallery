@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 from datetime import datetime
+
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 
@@ -84,7 +85,8 @@ def select_folder():
                             'path': file_path,
                             'relative_path': os.path.relpath(file_path, folder_path),
                             'size': stat.st_size,
-                            'last_modified': stat.st_mtime
+                            'last_modified': stat.st_mtime,
+                            'created_time': stat.st_ctime,
                         })
                     except Exception as e:
                         print(f"无法访问文件 {file_path}: {e}")
@@ -220,7 +222,9 @@ def get_next_image():
             'id': image['id'],
             'name': image['name'],
             'path': image['path'],
-            'size': image['size']
+            'size': image['size'],
+            'modify_time': image['last_modified'],
+            'created_time': image['created_time'],
         },
         'current_index': current_index,
         'total_count': len(images),
