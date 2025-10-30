@@ -1,0 +1,502 @@
+{% extends "image-blender/base.html" %}
+
+{% block content %}
+    <div class="px-4 py-6">
+        <!-- 消息显示区域 -->
+        <div id="message" class="hidden"></div>
+
+        <!-- 加载指示器 -->
+        <div id="loading" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                        <i class="fas fa-spinner fa-spin text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">处理中...</h3>
+                    <p class="text-sm text-gray-500 mt-1">正在融合图片，请稍候</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">图片融合工具</h2>
+
+            <form id="blendForm" enctype="multipart/form-data">
+                <!-- 图片输入区域 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- 底图输入 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700">
+                            <i class="fas fa-layer-group text-blue-500 mr-2"></i>底图
+                        </h3>
+
+                        <!-- 输入方式选择 -->
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">选择输入方式</label>
+                            <div class="flex space-x-4">
+                                <div class="flex items-center">
+                                    <input type="radio" id="base_upload" name="base_input_type" value="upload" checked
+                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                    <label for="base_upload" class="ml-2 block text-sm font-medium text-gray-700">
+                                        上传本地文件
+                                    </label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" id="base_url" name="base_input_type" value="url"
+                                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                    <label for="base_url" class="ml-2 block text-sm font-medium text-gray-700">
+                                        图片URL
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 上传文件区域 -->
+                        <div id="base-upload-section">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">选择底图文件</label>
+                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                                <div class="space-y-1 text-center">
+                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl"></i>
+                                    <div class="flex text-sm text-gray-600">
+                                        <label for="base_image"
+                                               class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                            <span>上传图片文件</span>
+                                            <input id="base_image" name="base_image" type="file" class="sr-only"
+                                                   accept="image/*">
+                                        </label>
+                                    </div>
+                                    <p class="text-xs text-gray-500">PNG, JPG, GIF 最大 16MB</p>
+                                </div>
+                            </div>
+                            <div id="base-file-name" class="mt-2 text-sm text-green-600 hidden"></div>
+                        </div>
+
+                        <!-- URL输入区域 -->
+                        <div id="base-url-section" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">输入图片URL</label>
+                            <input type="url" name="base_url" placeholder="https://example.com/image.jpg"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="mt-1 text-sm text-gray-500">支持常见图片格式的在线URL</p>
+                        </div>
+                    </div>
+
+                    <!-- 表层图输入 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700">
+                            <i class="fas fa-image text-green-500 mr-2"></i>表层图
+                        </h3>
+
+                        <!-- 输入方式选择 -->
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">选择输入方式</label>
+                            <div class="flex space-x-4">
+                                <div class="flex items-center">
+                                    <input type="radio" id="overlay_upload" name="overlay_input_type" value="upload"
+                                           checked
+                                           class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300">
+                                    <label for="overlay_upload" class="ml-2 block text-sm font-medium text-gray-700">
+                                        上传本地文件
+                                    </label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" id="overlay_url" name="overlay_input_type" value="url"
+                                           class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300">
+                                    <label for="overlay_url" class="ml-2 block text-sm font-medium text-gray-700">
+                                        图片URL
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 上传文件区域 -->
+                        <div id="overlay-upload-section">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">选择表层图文件</label>
+                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                                <div class="space-y-1 text-center">
+                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl"></i>
+                                    <div class="flex text-sm text-gray-600">
+                                        <label for="overlay_image"
+                                               class="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-green-500">
+                                            <span>上传图片文件</span>
+                                            <input id="overlay_image" name="overlay_image" type="file" class="sr-only"
+                                                   accept="image/*">
+                                        </label>
+                                    </div>
+                                    <p class="text-xs text-gray-500">PNG, JPG, GIF 最大 16MB</p>
+                                </div>
+                            </div>
+                            <div id="overlay-file-name" class="mt-2 text-sm text-green-600 hidden"></div>
+                        </div>
+
+                        <!-- URL输入区域 -->
+                        <div id="overlay-url-section" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">输入图片URL</label>
+                            <input type="url" name="overlay_url" placeholder="https://example.com/image.jpg"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                            <p class="mt-1 text-sm text-gray-500">支持常见图片格式的在线URL</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 融合选项 -->
+                <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                        <i class="fas fa-sliders-h text-purple-500 mr-2"></i>融合选项
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 融合模式 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">融合模式</label>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input type="radio" name="blend_mode" value="1"
+                                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300" checked>
+                                    <label class="ml-3 block text-sm font-medium text-gray-700">上半部分融合</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" name="blend_mode" value="2"
+                                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    <label class="ml-3 block text-sm font-medium text-gray-700">下半部分融合</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" name="blend_mode" value="3"
+                                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    <label class="ml-3 block text-sm font-medium text-gray-700">左半部分融合</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" name="blend_mode" value="4"
+                                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    <label class="ml-3 block text-sm font-medium text-gray-700">右半部分融合</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" name="blend_mode" value="5"
+                                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                    <label class="ml-3 block text-sm font-medium text-gray-700">左右融合保留中间</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 高级选项 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">高级选项</label>
+                            <div class="space-y-4">
+                                <div id="centerPercentageGroup" class="hidden">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">中间保留比例</label>
+                                    <input type="range" name="center_percentage" min="0.1" max="0.9" step="0.1"
+                                           value="0.3"
+                                           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                    <div class="flex justify-between text-xs text-gray-500">
+                                        <span>10%</span>
+                                        <span id="percentageValue">30%</span>
+                                        <span>90%</span>
+                                    </div>
+                                </div>
+                                <div class="pt-4">
+                                    <button type="button" onclick="cleanupFiles()"
+                                            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fas fa-trash-alt mr-2"></i>清理临时文件
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-center">
+                    <button type="submit"
+                            class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                        <i class="fas fa-blend mr-2"></i>开始融合图片
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 结果显示区域 -->
+        <div id="resultSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-check-circle text-green-500 mr-2"></i>融合结果
+            </h3>
+            <div class="flex justify-center">
+                <img id="resultImage" src="" alt="融合结果" class="max-w-full h-auto rounded-lg shadow-lg">
+            </div>
+            <div class="mt-4 flex justify-center space-x-4">
+                <a id="downloadLink" href="#" download
+                   class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <i class="fas fa-download mr-2"></i>下载图片
+                </a>
+                <button onclick="resetForm()"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-redo mr-2"></i>继续融合
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function () {
+            setupUrlValidation();
+            // 监听底图输入方式变化
+            document.querySelectorAll('input[name="base_input_type"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    toggleInputSection('base', this.value);
+                });
+            });
+
+            // 监听表层图输入方式变化
+            document.querySelectorAll('input[name="overlay_input_type"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    toggleInputSection('overlay', this.value);
+                });
+            });
+
+            // 监听文件选择
+            document.getElementById('base_image').addEventListener('change', function (e) {
+                updateFileNameDisplay('base', e.target.files[0]);
+            });
+
+            document.getElementById('overlay_image').addEventListener('change', function (e) {
+                updateFileNameDisplay('overlay', e.target.files[0]);
+            });
+
+            // 监听融合模式变化
+            document.querySelectorAll('input[name="blend_mode"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    const centerGroup = document.getElementById('centerPercentageGroup');
+                    if (this.value === '5') {
+                        centerGroup.classList.remove('hidden');
+                    } else {
+                        centerGroup.classList.add('hidden');
+                    }
+                });
+            });
+
+            // 监听百分比滑块变化
+            document.querySelector('input[name="center_percentage"]').addEventListener('input', function () {
+                document.getElementById('percentageValue').textContent = Math.round(this.value * 100) + '%';
+            });
+        });
+
+        // 切换输入区域显示
+        function toggleInputSection(type, inputType) {
+            const uploadSection = document.getElementById(`${type}-upload-section`);
+            const urlSection = document.getElementById(`${type}-url-section`);
+
+            if (inputType === 'upload') {
+                uploadSection.classList.remove('hidden');
+                urlSection.classList.add('hidden');
+            } else {
+                uploadSection.classList.add('hidden');
+                urlSection.classList.remove('hidden');
+            }
+        }
+
+        // 更新文件名显示
+        function updateFileNameDisplay(type, file) {
+            const fileNameDisplay = document.getElementById(`${type}-file-name`);
+            if (file) {
+                fileNameDisplay.textContent = `已选择: ${file.name}`;
+                fileNameDisplay.classList.remove('hidden');
+            } else {
+                fileNameDisplay.classList.add('hidden');
+            }
+        }
+
+        // 表单提交处理
+        document.getElementById('blendForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            // 验证输入
+            const baseInputType = document.querySelector('input[name="base_input_type"]:checked').value;
+            const overlayInputType = document.querySelector('input[name="overlay_input_type"]:checked').value;
+
+            if (baseInputType === 'upload' && !formData.get('base_image').name) {
+                showMessage('请选择底图文件', 'error');
+                return;
+            }
+
+            if (baseInputType === 'url' && !formData.get('base_url')) {
+                showMessage('请输入底图URL', 'error');
+                return;
+            }
+
+            if (overlayInputType === 'upload' && !formData.get('overlay_image').name) {
+                showMessage('请选择表层图文件', 'error');
+                return;
+            }
+
+            if (overlayInputType === 'url' && !formData.get('overlay_url')) {
+                showMessage('请输入表层图URL', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/blend', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 显示结果
+                    document.getElementById('resultImage').src = data.result_url;
+                    document.getElementById('downloadLink').href = data.result_url;
+                    document.getElementById('resultSection').classList.remove('hidden');
+
+                    // 滚动到结果区域
+                    document.getElementById('resultSection').scrollIntoView({
+                        behavior: 'smooth'
+                    });
+
+                    showMessage('图片融合成功！', 'success');
+                } else {
+                    showMessage(data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('网络错误: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // 清理临时文件
+        async function cleanupFiles() {
+            if (!confirm('确定要清理所有临时文件吗？')) return;
+
+            try {
+                const response = await fetch('/cleanup', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('临时文件清理成功！', 'success');
+                } else {
+                    showMessage('清理失败: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('blendForm').reset();
+            document.getElementById('resultSection').classList.add('hidden');
+            document.getElementById('centerPercentageGroup').classList.add('hidden');
+
+            // 重置文件显示
+            document.getElementById('base-file-name').classList.add('hidden');
+            document.getElementById('overlay-file-name').classList.add('hidden');
+
+            // 重置输入方式为上传
+            document.getElementById('base_upload').checked = true;
+            document.getElementById('overlay_upload').checked = true;
+            toggleInputSection('base', 'upload');
+            toggleInputSection('overlay', 'upload');
+
+            showMessage('表单已重置，可以开始新的融合操作', 'success');
+        }
+
+        // URL验证函数
+        async function validateUrl(url, type) {
+            if (!url) {
+                return {valid: false, message: 'URL不能为空'};
+            }
+
+            try {
+                const response = await fetch('/validate_url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({url: url})
+                });
+
+                return await response.json();
+            } catch (error) {
+                return {valid: false, message: '验证服务暂时不可用'};
+            }
+        }
+
+        // 实时URL验证
+        function setupUrlValidation() {
+            // 底图URL验证
+            const baseUrlInput = document.querySelector('input[name="base_url"]');
+            if (baseUrlInput) {
+                let baseValidationTimeout;
+                baseUrlInput.addEventListener('input', function () {
+                    clearTimeout(baseValidationTimeout);
+                    const url = this.value.trim();
+
+                    if (!url) {
+                        hideUrlValidation('base');
+                        return;
+                    }
+
+                    baseValidationTimeout = setTimeout(async () => {
+                        const result = await validateUrl(url, 'base');
+                        showUrlValidation('base', result.valid, result.message);
+                    }, 1000);
+                });
+            }
+
+            // 表层图URL验证
+            const overlayUrlInput = document.querySelector('input[name="overlay_url"]');
+            if (overlayUrlInput) {
+                let overlayValidationTimeout;
+                overlayUrlInput.addEventListener('input', function () {
+                    clearTimeout(overlayValidationTimeout);
+                    const url = this.value.trim();
+
+                    if (!url) {
+                        hideUrlValidation('overlay');
+                        return;
+                    }
+
+                    overlayValidationTimeout = setTimeout(async () => {
+                        const result = await validateUrl(url, 'overlay');
+                        showUrlValidation('overlay', result.valid, result.message);
+                    }, 1000);
+                });
+            }
+        }
+
+        // 显示URL验证结果
+        function showUrlValidation(type, isValid, message) {
+            const urlSection = document.getElementById(`${type}-url-section`);
+            let statusDiv = urlSection.querySelector('.url-validation-status');
+
+            if (!statusDiv) {
+                statusDiv = document.createElement('div');
+                statusDiv.className = 'url-validation-status mt-2 text-sm';
+                urlSection.appendChild(statusDiv);
+            }
+
+            if (isValid) {
+                statusDiv.className = 'url-validation-status mt-2 text-sm text-green-600';
+                statusDiv.innerHTML = `<i class="fas fa-check-circle mr-1"></i> ${message}`;
+            } else {
+                statusDiv.className = 'url-validation-status mt-2 text-sm text-red-600';
+                statusDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-1"></i> ${message}`;
+            }
+        }
+
+        // 隐藏URL验证结果
+        function hideUrlValidation(type) {
+            const urlSection = document.getElementById(`${type}-url-section`);
+            const statusDiv = urlSection.querySelector('.url-validation-status');
+            if (statusDiv) {
+                statusDiv.remove();
+            }
+        }
+    </script>
+{% endblock %}
